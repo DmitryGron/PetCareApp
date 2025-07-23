@@ -8,24 +8,7 @@ import { useReminderStore } from "../store/reminders"
 import { useThemeStore } from "../store/theme"
 import type { PetDetailScreenProps, Reminder } from "../types"
 import Icon from "react-native-vector-icons/MaterialCommunityIcons"
-
-const REMINDER_TYPES = [
-  { value: 'feeding', label: 'Feeding', icon: '🍽️' },
-  { value: 'walking', label: 'Walking', icon: '🚶‍♂️' },
-  { value: 'watering', label: 'Watering', icon: '💧' },
-  { value: 'vet', label: 'Vet Visit', icon: '🏥' },
-  { value: 'grooming', label: 'Grooming', icon: '✂️' },
-  { value: 'medication', label: 'Medication', icon: '💊' },
-  { value: 'other', label: 'Other', icon: '📝' },
-]
-
-const RECURRENCE_OPTIONS = [
-  { value: undefined, label: 'None' },
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'yearly', label: 'Yearly' },
-]
+import ReminderModal from "../components/ReminderModal"
 
 // Define styles outside of the component for reuse
 const styles = StyleSheet.create({
@@ -40,129 +23,6 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     marginHorizontal: 2,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    backgroundColor: '#1C1C1E', // Will be dynamically set based on theme
-    borderRadius: 12,
-    padding: 20,
-    maxHeight: '90%',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#FFFFFF', // Will be dynamically set based on theme
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#FFFFFF', // Will be dynamically set based on theme
-  },
-  input: {
-    backgroundColor: '#2C2C2E', // Will be dynamically set based on theme
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#FFFFFF', // Will be dynamically set based on theme
-    marginBottom: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  dateButton: {
-    backgroundColor: '#2C2C2E', // Will be dynamically set based on theme
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF', // Will be dynamically set based on theme
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  typeOption: {
-    width: '30%',
-    backgroundColor: '#2C2C2E', // Will be dynamically set based on theme
-    borderRadius: 8,
-    padding: 10,
-    margin: 5,
-    alignItems: 'center',
-  },
-  typeOptionSelected: {
-    backgroundColor: '#0A84FF', // Will be dynamically set based on theme
-  },
-  typeIcon: {
-    marginBottom: 5,
-    fontSize: 20,
-  },
-  typeLabel: {
-    fontSize: 12,
-    color: '#FFFFFF', // Will be dynamically set based on theme
-    textAlign: 'center',
-  },
-  recurrenceContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  recurrenceOption: {
-    backgroundColor: '#2C2C2E', // Will be dynamically set based on theme
-    borderRadius: 8,
-    padding: 10,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  recurrenceOptionSelected: {
-    backgroundColor: '#0A84FF', // Will be dynamically set based on theme
-  },
-  recurrenceText: {
-    color: '#FFFFFF', // Will be dynamically set based on theme
-  },
-  recurrenceTextSelected: {
-    color: '#FFFFFF',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    margin: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#2C2C2E', // Will be dynamically set based on theme
-  },
-  saveButton: {
-    backgroundColor: '#0A84FF', // Will be dynamically set based on theme
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  cancelButtonText: {
-    color: '#FFFFFF', // Will be dynamically set based on theme
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
   },
   header: {
     backgroundColor: '#1C1C1E', // Will be dynamically set based on theme
@@ -323,31 +183,8 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
   const { reminders, loadRemindersByPet, toggleReminderComplete, removeReminder, updateReminderData } = useReminderStore()
   const { isDarkMode } = useThemeStore()
   const [activeTab, setActiveTab] = useState<"info" | "reminders" | "health">("info")
-  const [showModal, setShowModal] = useState(false)
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
-  
-  // Helper component for pet selection in the modal
-  const PetSuggestionInput = ({ value, placeholder, darkMode, style }: any) => {
-    // In this simplified version, we're just showing the current pet
-    // since we're only editing reminders from the pet detail screen
-    return (
-      <View style={[styles.input, style]}>
-        <Text style={{ color: darkMode ? '#FFFFFF' : '#000000' }}>
-          {selectedPet ? selectedPet.name : 'Current Pet'}
-        </Text>
-      </View>
-    )
-  }
-  const [newReminder, setNewReminder] = useState({
-    petId: petId,
-    title: '',
-    description: '',
-    type: 'other' as 'feeding' | 'walking' | 'watering' | 'vet' | 'grooming' | 'medication' | 'other',
-    scheduledDate: new Date(),
-    recurring: undefined as undefined | 'daily' | 'weekly' | 'monthly' | 'yearly',
-    notificationEnabled: true
-  })
+  const [showReminderModal, setShowReminderModal] = useState(false)
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null)
 
   useEffect(() => {
     selectPet(petId)
@@ -380,10 +217,14 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
     if (!selectedPet) return
 
     const shareText =
-      `🐾 ${selectedPet.name}\n` +
-      `Type: ${selectedPet.type}\n` +
-      (selectedPet.breed ? `Breed: ${selectedPet.breed}\n` : "") +
-      (selectedPet.age ? `Age: ${selectedPet.age} years old\n` : "") +
+      `🐾 ${selectedPet.name}
+` +
+      `Type: ${selectedPet.type}
+` +
+      (selectedPet.breed ? `Breed: ${selectedPet.breed}
+` : "") +
+      (selectedPet.age ? `Age: ${selectedPet.age} years old
+` : "") +
       (selectedPet.notes ? `Notes: ${selectedPet.notes}` : "")
 
     try {
@@ -415,7 +256,9 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
   }
 
   const handleAddReminder = () => {
-    navigation.navigate("Reminders", { petId })
+    // Open the modal in add mode for the current pet
+    setEditingReminder(null);
+    setShowReminderModal(true);
   }
 
   const handleToggleComplete = async (reminder: any) => {
@@ -451,64 +294,31 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
     )
   }
 
-  const handleEditReminder = (reminder: any) => {
-    setSelectedReminder(reminder)
-    setNewReminder({
-      petId: reminder.petId,
-      title: reminder.title,
-      description: reminder.description || '',
-      type: reminder.type,
-      scheduledDate: new Date(reminder.scheduledDate),
-      recurring: reminder.recurring,
-      notificationEnabled: reminder.notificationEnabled,
-    })
-    setShowModal(true)
+  const handleEditReminder = (reminder: Reminder) => {
+    setEditingReminder(reminder)
+    setShowReminderModal(true)
   }
 
-  const handleUpdateReminder = async () => {
-    if (!selectedReminder) return
-    
-    if (!newReminder.title.trim()) {
-      Alert.alert("Error", "Please enter a title for the reminder")
-      return
-    }
-
-    // Ensure recurring is the correct type
-    const recurring = newReminder.recurring as undefined | 'daily' | 'weekly' | 'monthly' | 'yearly'
-
+  const handleSaveReminder = async (reminderData: Omit<Reminder, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => {
     try {
-      await updateReminderData(selectedReminder.id, {
-        petId: newReminder.petId,
-        title: newReminder.title.trim(),
-        description: newReminder.description?.trim(),
-        type: newReminder.type,
-        scheduledDate: newReminder.scheduledDate.toISOString(),
-        recurring,
-        notificationEnabled: newReminder.notificationEnabled,
-      })
-
-      setShowModal(false)
-      setSelectedReminder(null)
-      resetForm()
-      loadRemindersByPet(petId)
-      Alert.alert("Success", "Reminder updated successfully!")
+      if (editingReminder) {
+        // Update existing reminder
+        await updateReminderData(editingReminder.id, reminderData);
+        Alert.alert("Success", "Reminder updated successfully!")
+      } else {
+        // Add new reminder
+        // Note: addReminder handles setting id, createdAt, and default completed status
+        await addReminder({...reminderData, completed: false });
+        Alert.alert("Success", "Reminder added successfully!")
+      }
+      setShowReminderModal(false);
+      setEditingReminder(null);
+      loadRemindersByPet(petId);
     } catch (error) {
-      console.error('Failed to update reminder:', error)
-      Alert.alert("Error", "Failed to update reminder")
+      console.error('Failed to save reminder:', error);
+      Alert.alert("Error", `Failed to ${editingReminder ? 'update' : 'add'} reminder`);
     }
-  }
-
-  const resetForm = () => {
-    setNewReminder({
-      petId: petId,
-      title: '',
-      description: '',
-      type: 'other' as 'feeding' | 'walking' | 'watering' | 'vet' | 'grooming' | 'medication' | 'other',
-      scheduledDate: new Date(),
-      recurring: undefined as undefined | 'daily' | 'weekly' | 'monthly' | 'yearly',
-      notificationEnabled: true
-    })
-  }
+  };
 
   const getPetIcon = (type: string): string => {
     const icons = {
@@ -537,303 +347,6 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
 
   const getCompletedReminders = () => {
     return reminders.filter((r) => r.completed).slice(0, 3)
-  }
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDarkMode ? "#000000" : "#F2F2F7",
-    },
-    reminderActions: {
-      flexDirection: 'row',
-      marginLeft: 'auto',
-    },
-    actionButton: {
-      padding: 8,
-      marginHorizontal: 2,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    modalContent: {
-      width: '100%',
-      backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF',
-      borderRadius: 12,
-      padding: 20,
-      maxHeight: '90%',
-    },
-    modalTitle: {
-      fontSize: 22,
-      fontWeight: 'bold',
-      marginBottom: 20,
-      textAlign: 'center',
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-    },
-    label: {
-      fontSize: 16,
-      fontWeight: '500',
-      marginBottom: 8,
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-    },
-    input: {
-      backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7',
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-      marginBottom: 16,
-    },
-    textArea: {
-      height: 100,
-      textAlignVertical: 'top',
-    },
-    dateButton: {
-      backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7',
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
-    },
-    dateButtonText: {
-      fontSize: 16,
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-    },
-    typeGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 16,
-    },
-    typeOption: {
-      width: '30%',
-      backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7',
-      borderRadius: 8,
-      padding: 10,
-      margin: 5,
-      alignItems: 'center',
-    },
-    typeOptionSelected: {
-      backgroundColor: isDarkMode ? '#0A84FF' : '#007AFF',
-    },
-    typeIcon: {
-      fontSize: 24,
-      marginBottom: 5,
-    },
-    typeLabel: {
-      fontSize: 12,
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-      textAlign: 'center',
-    },
-    recurrenceContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 16,
-    },
-    recurrenceOption: {
-      backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7',
-      borderRadius: 8,
-      padding: 10,
-      marginRight: 8,
-      marginBottom: 8,
-    },
-    recurrenceOptionSelected: {
-      backgroundColor: isDarkMode ? '#0A84FF' : '#007AFF',
-    },
-    recurrenceText: {
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-    },
-    recurrenceTextSelected: {
-      color: '#FFFFFF',
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 20,
-    },
-    modalButton: {
-      flex: 1,
-      borderRadius: 8,
-      padding: 14,
-      alignItems: 'center',
-      margin: 5,
-    },
-    cancelButton: {
-      backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7',
-    },
-    saveButton: {
-      backgroundColor: isDarkMode ? '#0A84FF' : '#007AFF',
-    },
-    modalButtonText: {
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    cancelButtonText: {
-      color: isDarkMode ? '#FFFFFF' : '#000000',
-    },
-    saveButtonText: {
-      color: '#FFFFFF',
-    },
-    header: {
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      padding: 20,
-      alignItems: "center",
-    },
-    petImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      marginBottom: 16,
-    },
-    iconContainer: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 16,
-    },
-    petIcon: {
-      fontSize: 40,
-    },
-    petName: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      marginBottom: 8,
-    },
-    petType: {
-      fontSize: 16,
-      color: "#007AFF",
-      textTransform: "capitalize",
-      marginBottom: 4,
-    },
-    petBreed: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-    },
-    tabContainer: {
-      flexDirection: "row",
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      paddingHorizontal: 20,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 16,
-      alignItems: "center",
-      borderBottomWidth: 2,
-      borderBottomColor: "transparent",
-    },
-    activeTab: {
-      borderBottomColor: "#007AFF",
-    },
-    tabText: {
-      fontSize: 16,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-    },
-    activeTabText: {
-      color: "#007AFF",
-      fontWeight: "500",
-    },
-    content: {
-      flex: 1,
-      padding: 20,
-    },
-    section: {
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 16,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      marginBottom: 12,
-    },
-    infoRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-    },
-    infoLabel: {
-      fontSize: 16,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-    },
-    infoValue: {
-      fontSize: 16,
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      fontWeight: "500",
-    },
-    notes: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-      lineHeight: 20,
-      marginTop: 8,
-    },
-    reminderItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      padding: 12,
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 8,
-      marginBottom: 8,
-    },
-    missedReminderItem: {
-      borderLeftWidth: 4,
-      borderLeftColor: '#FF3B30',
-    },
-    reminderInfo: {
-      flex: 1,
-    },
-    reminderTitle: {
-      fontSize: 16,
-      fontWeight: "500",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-    },
-    reminderDate: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-      marginTop: 2,
-    },
-    addButton: {
-      backgroundColor: "#007AFF",
-      borderRadius: 8,
-      padding: 12,
-      alignItems: "center",
-      marginTop: 12,
-    },
-    addButtonText: {
-      color: "#FFFFFF",
-      fontSize: 16,
-      fontWeight: "500",
-    },
-    emptyState: {
-      alignItems: "center",
-      paddingVertical: 40,
-    },
-    emptyIcon: {
-      fontSize: 40,
-      marginBottom: 12,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-      textAlign: "center",
-    },
-  })
-
-  if (!selectedPet) {
-    return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ color: isDarkMode ? "#FFFFFF" : "#000000" }}>Loading...</Text>
-      </View>
-    )
   }
 
   const renderInfoTab = () => (
@@ -1064,132 +577,14 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
       {activeTab === "reminders" && renderRemindersTab()}
       {activeTab === "health" && renderHealthTab()}
       
-      {/* Edit Reminder Modal - Moved outside tabs for global access */}
-      <Modal visible={showModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF" }]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.modalTitle, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Edit Reminder</Text>
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Pet</Text>
-              <PetSuggestionInput
-                value={petId}
-                placeholder="Current Pet"
-                darkMode={isDarkMode}
-                style={{ marginBottom: 16 }}
-              />
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Title</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF", color: isDarkMode ? "#FFFFFF" : "#000000" }]}
-                value={newReminder.title}
-                onChangeText={(text) => setNewReminder({ ...newReminder, title: text })}
-                placeholder="Enter reminder title"
-                placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
-              />
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Description (Optional)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF", color: isDarkMode ? "#FFFFFF" : "#000000" }]}
-                value={newReminder.description}
-                onChangeText={(text) => setNewReminder({ ...newReminder, description: text })}
-                placeholder="Enter description..."
-                placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
-                multiline
-              />
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Type</Text>
-              <View style={styles.typeGrid}>
-                {REMINDER_TYPES.map((type) => (
-                  <TouchableOpacity
-                    key={type.value}
-                    style={[
-                      styles.typeOption, 
-                      { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF" },
-                      newReminder.type === type.value && styles.typeOptionSelected
-                    ]}
-                    onPress={() => setNewReminder({ ...newReminder, type: type.value as any })}
-                  >
-                    <Text style={styles.typeIcon}>{type.icon}</Text>
-                    <Text style={[styles.typeLabel, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>{type.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Date & Time</Text>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={newReminder.scheduledDate}
-                  mode="datetime"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(false)
-                    if (selectedDate) {
-                      setNewReminder({ ...newReminder, scheduledDate: selectedDate })
-                    }
-                  }}
-                />
-              )}
-              <TouchableOpacity 
-                style={[styles.dateButton, { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF" }]} 
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={[styles.dateButtonText, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>
-                  {newReminder.scheduledDate.toLocaleDateString()} at{" "}
-                  {newReminder.scheduledDate.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={[styles.label, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Repeat</Text>
-              <View style={styles.recurrenceContainer}>
-                {RECURRENCE_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.value || 'none'}
-                    style={[
-                      styles.recurrenceOption,
-                      { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF" },
-                      newReminder.recurring === option.value && styles.recurrenceOptionSelected
-                    ]}
-                    onPress={() => setNewReminder({ ...newReminder, recurring: option.value as undefined | 'daily' | 'weekly' | 'monthly' | 'yearly' })}
-                  >
-                    <Text 
-                      style={[
-                        styles.recurrenceText,
-                        { color: isDarkMode ? "#FFFFFF" : "#000000" },
-                        newReminder.recurring === option.value && styles.recurrenceTextSelected
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF" }]}
-                onPress={() => {
-                  setShowModal(false)
-                  resetForm()
-                }}
-              >
-                <Text style={[styles.modalButtonText, styles.cancelButtonText, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.saveButton]} 
-                onPress={handleUpdateReminder}
-              >
-                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Reminder Modal */}
+      <ReminderModal
+        isVisible={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        onSave={handleSaveReminder}
+        initialData={editingReminder}
+        petId={petId} // Pass the current petId to the modal
+      />
     </View>
   )
 }

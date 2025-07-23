@@ -10,37 +10,18 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
-  Modal,
-  TextInput,
-  ScrollView,
-  Platform,
 } from "react-native"
-import DateTimePicker from "@react-native-community/datetimepicker"
 import { useReminderStore } from "../store/reminders"
 import { usePetStore } from "../store/pets"
 import { useThemeStore } from "../store/theme"
-import PetSuggestionInput from "../components/PetSuggestionInput"
+import ReminderModal from "../components/ReminderModal"
+import ReminderItem from "../components/ReminderItem"
+import FilterButton from "../components/FilterButton"
 import type { RemindersScreenProps, Reminder } from "../types"
-import { requestNotificationPermissions, scheduleNotification, cancelNotification } from "../lib/notifications"
+import { requestNotificationPermissions } from "../lib/notifications"
 import Icon from "react-native-vector-icons/MaterialCommunityIcons"
-
-const REMINDER_TYPES = [
-  { value: "feeding", label: "Feeding", icon: "🍽️" },
-  { value: "walking", label: "Walking", icon: "🚶" },
-  { value: "watering", label: "Watering", icon: "💧" },
-  { value: "vet", label: "Vet Visit", icon: "🏥" },
-  { value: "grooming", label: "Grooming", icon: "✂️" },
-  { value: "medication", label: "Medication", icon: "💊" },
-  { value: "other", label: "Other", icon: "📝" },
-]
-
-const RECURRENCE_OPTIONS = [
-  { value: undefined, label: "No Repeat" },
-  { value: "daily" as "daily", label: "Daily" },
-  { value: "weekly" as "weekly", label: "Weekly" },
-  { value: "monthly" as "monthly", label: "Monthly" },
-  { value: "yearly" as "yearly", label: "Yearly" },
-]
+import { REMINDER_TYPES } from "../utils/constants"
+import { formatDate } from "../utils/formatters"
 
 export default function RemindersScreen({ navigation, route }: RemindersScreenProps) {
   const { reminders, loading, loadReminders, addReminder, toggleReminderComplete, removeReminder, updateReminderData } = useReminderStore()
@@ -52,18 +33,6 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
   const [selectedFilter, setSelectedFilter] = useState<"all" | "upcoming" | "missed" | "completed">("upcoming")
   const [refreshing, setRefreshing] = useState(false)
-
-  // Add reminder form state
-  const [newReminder, setNewReminder] = useState({
-    petId: route?.params?.petId || "",
-    title: "",
-    description: "",
-    type: "feeding" as any,
-    scheduledDate: new Date(),
-    recurring: undefined as "daily" | "weekly" | "monthly" | "yearly" | undefined,
-    notificationEnabled: true,
-  })
-  const [showDatePicker, setShowDatePicker] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -100,84 +69,10 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     }
   }
 
-  const handleAddReminder = async () => {
-    if (!newReminder.title.trim()) {
-      Alert.alert("Error", "Please enter a title for the reminder")
-      return
-    }
-
-    if (!newReminder.petId) {
-      Alert.alert("Error", "Please select a pet")
-      return
-    }
-
-    try {
-      // Add reminder (notification scheduling is handled in the store)
-      await addReminder({
-        petId: newReminder.petId,
-        title: newReminder.title.trim(),
-        description: newReminder.description?.trim(),
-        type: newReminder.type,
-        scheduledDate: newReminder.scheduledDate.toISOString(),
-        recurring: newReminder.recurring,
-        notificationEnabled: newReminder.notificationEnabled,
-        completed: false,
-      })
-
-      setShowModal(false)
-      resetForm()
-      Alert.alert("Success", "Reminder added successfully!")
-    } catch (error) {
-      console.error('Failed to add reminder:', error)
-      Alert.alert("Error", "Failed to add reminder")
-    }
-  }
-
-  const handleEditReminder = async () => {
-    if (!selectedReminder) return
-    
-    if (!newReminder.title.trim()) {
-      Alert.alert("Error", "Please enter a title for the reminder")
-      return
-    }
-
-    if (!newReminder.petId) {
-      Alert.alert("Error", "Please select a pet")
-      return
-    }
-
-    try {
-      await updateReminderData(selectedReminder.id, {
-        petId: newReminder.petId,
-        title: newReminder.title.trim(),
-        description: newReminder.description?.trim(),
-        type: newReminder.type,
-        scheduledDate: newReminder.scheduledDate.toISOString(),
-        recurring: newReminder.recurring,
-        notificationEnabled: newReminder.notificationEnabled,
-      })
-
-      setShowModal(false)
-      setIsEditMode(false)
-      setSelectedReminder(null)
-      resetForm()
-      Alert.alert("Success", "Reminder updated successfully!")
-    } catch (error) {
-      console.error('Failed to update reminder:', error)
-      Alert.alert("Error", "Failed to update reminder")
-    }
-  }
-
-  const resetForm = () => {
-    setNewReminder({
-      petId: route?.params?.petId || "",
-      title: "",
-      description: "",
-      type: "feeding",
-      scheduledDate: new Date(),
-      recurring: undefined,
-      notificationEnabled: true,
-    })
+  const closeReminderModal = () => {
+    setIsEditMode(false);
+    setSelectedReminder(null);
+    setShowModal(false);
   }
 
   const handleToggleComplete = async (reminder: Reminder) => {
@@ -197,13 +92,27 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
         onPress: async () => {
           try {
             await removeReminder(reminder.id)
-          } catch (error) {
-            Alert.alert("Error", "Failed to delete reminder")
           }
         },
       },
     ])
   }
+
+  const handleSaveReminder = async (reminderData: Omit<Reminder, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => {
+    try {
+      if (isEditMode && selectedReminder) {
+        await updateReminderData(selectedReminder.id, reminderData);
+        Alert.alert("Success", "Reminder updated successfully!");
+      } else {
+        await addReminder({...reminderData, completed: false});
+        Alert.alert("Success", "Reminder added successfully!");
+      }
+      closeReminderModal();
+    } catch (error) {
+      console.error('Failed to save reminder:', error);
+      Alert.alert("Error", "Failed to save reminder");
+    }
+  };
 
   const getPetName = (petId: string) => {
     const pet = pets.find((p) => p.id === petId)
@@ -211,24 +120,9 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
   }
 
   const getReminderIcon = (type: string) => {
-    const reminderType = REMINDER_TYPES.find((t) => t.value === type)
-    return reminderType?.icon || "📝"
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return "Today"
-    if (diffDays === 1) return "Tomorrow"
-    if (diffDays === -1) return "Yesterday"
-    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`
-    if (diffDays < -1 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`
-
-    return date.toLocaleDateString()
-  }
+    const reminderType = REMINDER_TYPES.find((t) => t.value === type);
+    return reminderType?.icon || "📝";
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -244,26 +138,27 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       justifyContent: "space-around",
       marginBottom: 16,
     },
-    filterButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-    },
-    filterButtonActive: {
-      backgroundColor: "#007AFF",
-    },
-    filterText: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-    },
-    filterTextActive: {
-      color: "#FFFFFF",
-      fontWeight: "500",
-    },
-    missedFilterButtonActive: {
-      backgroundColor: "#FF3B30",
-    },
+    // Removed filter button styles
+    // filterButton: {
+    //   paddingHorizontal: 16,
+    //   paddingVertical: 8,
+    //   borderRadius: 20,
+    //   backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
+    // },
+    // filterButtonActive: {
+    //   backgroundColor: "#007AFF",
+    // },
+    // filterText: {
+    //   fontSize: 14,
+    //   color: isDarkMode ? "#CCCCCC" : "#666666",
+    // },
+    // filterTextActive: {
+    //   color: "#FFFFFF",
+    //   fontWeight: "500",
+    // },
+    // missedFilterButtonActive: {
+    //   backgroundColor: "#FF3B30",
+    // },
     addButton: {
       backgroundColor: "#007AFF",
       borderRadius: 10,
@@ -278,53 +173,6 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     content: {
       flex: 1,
       padding: 20,
-    },
-    reminderItem: {
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    reminderItemCompleted: {
-      opacity: 0.6,
-    },
-    reminderIcon: {
-      fontSize: 24,
-      marginRight: 16,
-    },
-    reminderInfo: {
-      flex: 1,
-    },
-    reminderTitle: {
-      fontSize: 16,
-      fontWeight: "500",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      marginBottom: 4,
-    },
-    reminderTitleCompleted: {
-      textDecorationLine: "line-through",
-    },
-    reminderDetails: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-      marginBottom: 2,
-    },
-    reminderDate: {
-      fontSize: 12,
-      color: "#007AFF",
-    },
-    reminderActions: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    actionButton: {
-      padding: 8,
-      marginLeft: 8,
-    },
-    actionText: {
-      fontSize: 16,
     },
     emptyContainer: {
       flex: 1,
@@ -362,200 +210,23 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       fontWeight: "600",
       color: isDarkMode ? "#FFFFFF" : "#000000",
     },
-    // Modal styles
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    modalContent: {
-      backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF",
-      borderRadius: 12,
-      padding: 20,
-      width: "90%",
-      maxHeight: "80%",
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: "bold",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      marginBottom: 20,
-      textAlign: "center",
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: isDarkMode ? "#38383A" : "#E5E5EA",
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#FFFFFF",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      marginBottom: 16,
-    },
-    textArea: {
-      height: 80,
-      textAlignVertical: "top",
-    },
-    label: {
-      fontSize: 16,
-      fontWeight: "500",
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      marginBottom: 8,
-    },
-    pickerContainer: {
-      borderWidth: 1,
-      borderColor: isDarkMode ? "#38383A" : "#E5E5EA",
-      borderRadius: 8,
-      marginBottom: 16,
-    },
-    dateButton: {
-      padding: 12,
-      borderWidth: 1,
-      borderColor: isDarkMode ? "#38383A" : "#E5E5EA",
-      borderRadius: 8,
-      marginBottom: 16,
-    },
-    dateButtonText: {
-      fontSize: 16,
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-    },
-    typeGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      marginBottom: 16,
-    },
-    typeOption: {
-      width: "48%",
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 8,
-      alignItems: "center",
-      borderWidth: 2,
-      borderColor: "transparent",
-    },
-    typeOptionSelected: {
-      borderColor: "#007AFF",
-      backgroundColor: isDarkMode ? "#1A365D" : "#E3F2FD",
-    },
-    typeIcon: {
-      fontSize: 20,
-      marginBottom: 4,
-    },
-    typeLabel: {
-      fontSize: 12,
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-      textAlign: "center",
-    },
-    modalButtons: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      marginTop: 20,
-    },
-    modalButton: {
-      flex: 1,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: "center",
-      marginHorizontal: 8,
-    },
-    cancelButton: {
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-    },
-    saveButton: {
-      backgroundColor: "#007AFF",
-    },
-    modalButtonText: {
-      fontSize: 16,
-      fontWeight: "500",
-    },
-    cancelButtonText: {
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-    },
-    saveButtonText: {
-      color: "#FFFFFF",
-    },
-    recurrenceContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginBottom: 16,
-      justifyContent: "space-between",
-    },
-    recurrenceOption: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 8,
-      marginRight: 8,
-      marginBottom: 8,
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-      minWidth: 80,
-      alignItems: "center",
-    },
-    recurrenceOptionSelected: {
-      backgroundColor: isDarkMode ? "#1A365D" : "#E3F2FD",
-      borderWidth: 1,
-      borderColor: "#007AFF",
-    },
-    recurrenceText: {
-      fontSize: 14,
-      color: isDarkMode ? "#FFFFFF" : "#000000",
-    },
-    recurrenceTextSelected: {
-      color: "#007AFF",
-      fontWeight: "500",
-    },
   })
 
   const renderReminderItem = ({ item }: { item: Reminder }) => (
-    <View style={[styles.reminderItem, item.completed && styles.reminderItemCompleted]}>
-      <Text style={styles.reminderIcon}>{getReminderIcon(item.type)}</Text>
-
-      <View style={styles.reminderInfo}>
-        <Text style={[styles.reminderTitle, item.completed && styles.reminderTitleCompleted]}>{item.title}</Text>
-        <Text style={styles.reminderDetails}>
-          {getPetName(item.petId)} • {item.type}
-        </Text>
-        <Text style={styles.reminderDate}>
-          {formatDate(item.scheduledDate)} at{" "}
-          {new Date(item.scheduledDate).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
-
-      <View style={styles.reminderActions}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleComplete(item)}>
-          <Icon name={item.completed ? "undo" : "check-circle"} size={22} color={item.completed ? "#FF9500" : "#34C759"} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          onPress={() => {
-            setIsEditMode(true)
-            setSelectedReminder(item)
-            setNewReminder({
-              petId: item.petId,
-              title: item.title,
-              description: item.description || "",
-              type: item.type,
-              scheduledDate: new Date(item.scheduledDate),
-              recurring: item.recurring,
-              notificationEnabled: item.notificationEnabled,
-            })
-            setShowModal(true)
-          }}
-        >
-          <Icon name="pencil" size={22} color="#007AFF" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteReminder(item)}>
-          <Icon name="delete" size={22} color="#FF3B30" />
-        </TouchableOpacity>
-      </View>
-    </View>
+    <ReminderItem
+      item={item}
+      onToggleComplete={handleToggleComplete}
+      onEdit={(reminder) => {
+        setIsEditMode(true);
+        setSelectedReminder(reminder);
+        setShowModal(true);
+      }}
+      onDelete={handleDeleteReminder}
+      getPetName={getPetName}
+      formatDate={formatDate}
+      isDarkMode={isDarkMode}
+      getReminderIcon={getReminderIcon}
+    />
   )
 
   const iconColor = isDarkMode ? '#CCCCCC' : '#333333';
@@ -577,28 +248,20 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       <View style={styles.header}>
         <View style={styles.filterContainer}>
           {(["upcoming", "missed", "completed", "all"] as const).map((filter) => (
-            <TouchableOpacity
+            <FilterButton
               key={filter}
-              style={[
-                styles.filterButton, 
-                selectedFilter === filter && styles.filterButtonActive,
-              ]}
-              onPress={() => setSelectedFilter(filter)}
-            >
-              <Text style={[
-                styles.filterText, 
-                selectedFilter === filter && styles.filterTextActive,
-              ]}>
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </Text>
-            </TouchableOpacity>
+              label={filter.charAt(0).toUpperCase() + filter.slice(1)}
+              filterValue={filter}
+              onPress={setSelectedFilter}
+              isActive={selectedFilter === filter}
+              isDarkMode={isDarkMode}
+            />
           ))}
         </View>
 
         <TouchableOpacity style={styles.addButton} onPress={() => {
           setIsEditMode(false)
           setSelectedReminder(null)
-          resetForm()
           setShowModal(true)
         }}>
           <Text style={styles.addButtonText}>Add Reminder</Text>
@@ -625,119 +288,20 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
         )}
       </View>
 
-      {/* Add Reminder Modal */}
-      <Modal visible={showModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTitle}>{isEditMode ? 'Edit Reminder' : 'Add Reminder'}</Text>
-
-              <Text style={styles.label}>Pet</Text>
-              <PetSuggestionInput
-                value={newReminder.petId}
-                onPetSelected={(petId) => setNewReminder({ ...newReminder, petId })}
-                placeholder="Select or search for a pet..."
-                darkMode={isDarkMode}
-                style={{ marginBottom: 16 }}
-              />
-
-              <Text style={styles.label}>Title</Text>
-              <TextInput
-                style={styles.input}
-                value={newReminder.title}
-                onChangeText={(text) => setNewReminder({ ...newReminder, title: text })}
-                placeholder="Enter reminder title"
-                placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
-              />
-
-              <Text style={styles.label}>Description (Optional)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={newReminder.description}
-                onChangeText={(text) => setNewReminder({ ...newReminder, description: text })}
-                placeholder="Enter description..."
-                placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
-                multiline
-              />
-
-              <Text style={styles.label}>Type</Text>
-              <View style={styles.typeGrid}>
-                {REMINDER_TYPES.map((type) => (
-                  <TouchableOpacity
-                    key={type.value}
-                    style={[styles.typeOption, newReminder.type === type.value && styles.typeOptionSelected]}
-                    onPress={() => setNewReminder({ ...newReminder, type: type.value as any })}
-                  >
-                    <Text style={styles.typeIcon}>{type.icon}</Text>
-                    <Text style={styles.typeLabel}>{type.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Date & Time</Text>
-              <DateTimePicker
-                  value={newReminder.scheduledDate}
-                  mode="datetime"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowDatePicker(false)
-                    if (selectedDate) {
-                      setNewReminder({ ...newReminder, scheduledDate: selectedDate })
-                    }
-                  }}
-                />
-              <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-                <Text style={styles.dateButtonText}>
-                  {newReminder.scheduledDate.toLocaleDateString()} at{" "}
-                  {newReminder.scheduledDate.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={styles.label}>Repeat</Text>
-              <View style={styles.recurrenceContainer}>
-                {RECURRENCE_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.value || 'none'}
-                    style={[
-                      styles.recurrenceOption,
-                      newReminder.recurring === option.value && styles.recurrenceOptionSelected
-                    ]}
-                    onPress={() => setNewReminder({ ...newReminder, recurring: option.value })}
-                  >
-                    <Text 
-                      style={[
-                        styles.recurrenceText,
-                        newReminder.recurring === option.value && styles.recurrenceTextSelected
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowModal(false)
-                  resetForm()
-                }}
-              >
-                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={isEditMode ? handleEditReminder : handleAddReminder}>
-                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Reminder Modal */}
+      <ReminderModal
+        isVisible={showModal}
+        onClose={closeReminderModal}
+        onSave={handleSaveReminder}
+        initialData={selectedReminder}
+        petId={route?.params?.petId}
+      />
     </View>
   )
 }
+
+// Helper function to get icon
+const getReminderIcon = (type: string) => {
+  const reminderType = REMINDER_TYPES.find((t) => t.value === type);
+  return reminderType?.icon || "📝";
+};
