@@ -12,6 +12,7 @@ import LoginScreen from './screens/LoginScreen';
 import PetListScreen from './screens/PetListScreen';
 import CreatePetScreen from './screens/CreatePetScreen';
 import PetDetailScreen from './screens/PetDetailScreen';
+import PetHealthScreen from './screens/PetHealthScreen';
 import RemindersScreen from './screens/RemindersScreen';
 import AIConsultationScreen from './screens/AIConsultationScreen';
 import SettingsScreen from './screens/SettingsScreen';
@@ -20,7 +21,7 @@ import { RootStackParamList } from './types';
 const Stack = createStackNavigator<RootStackParamList>()
 
 export default function App() {
-  const { isDarkMode } = useThemeStore();
+  const { isDarkMode, loadTheme } = useThemeStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +32,8 @@ export default function App() {
         console.log('Initializing database...');
         await initializeDatabase();
         console.log('Database initialized successfully');
+        await loadTheme();
+        console.log('Theme loaded from storage');
         await requestNotificationPermissions();
         setIsLoading(false);
       } catch (err) {
@@ -115,6 +118,11 @@ export default function App() {
           name="PetDetail" 
           component={PetDetailScreen}
           options={{ title: 'Pet Details' }}
+        />
+        <Stack.Screen 
+          name="PetHealth" 
+          component={PetHealthScreen}
+          options={{ title: 'Pet Health', headerShown: false }}
         />
         <Stack.Screen 
           name="Reminders" 

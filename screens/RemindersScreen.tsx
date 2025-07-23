@@ -5,6 +5,7 @@ import {
   View,
   Text,
   FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -21,6 +22,7 @@ import { useThemeStore } from "../store/theme"
 import PetSuggestionInput from "../components/PetSuggestionInput"
 import type { RemindersScreenProps, Reminder } from "../types"
 import { requestNotificationPermissions, scheduleNotification, cancelNotification } from "../lib/notifications"
+import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 
 const REMINDER_TYPES = [
   { value: "feeding", label: "Feeding", icon: "🍽️" },
@@ -41,12 +43,14 @@ const RECURRENCE_OPTIONS = [
 ]
 
 export default function RemindersScreen({ navigation, route }: RemindersScreenProps) {
-  const { reminders, loading, loadReminders, addReminder, toggleReminderComplete, removeReminder } = useReminderStore()
+  const { reminders, loading, loadReminders, addReminder, toggleReminderComplete, removeReminder, updateReminderData } = useReminderStore()
   const { pets, loadPets } = usePetStore()
   const { isDarkMode } = useThemeStore()
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState<"all" | "upcoming" | "completed">("upcoming")
+  const [showModal, setShowModal] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "upcoming" | "missed" | "completed">("upcoming")
   const [refreshing, setRefreshing] = useState(false)
 
   // Add reminder form state
@@ -70,7 +74,7 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       
       // Auto-open add modal if coming from pet detail
       if (route?.params?.action === "add") {
-        setShowAddModal(true)
+        setShowModal(true)
       }
     }
     fetchData()
@@ -87,6 +91,8 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     switch (selectedFilter) {
       case "upcoming":
         return reminders.filter((r) => !r.completed && new Date(r.scheduledDate) > now)
+      case "missed":
+        return reminders.filter((r) => !r.completed && new Date(r.scheduledDate) < now)
       case "completed":
         return reminders.filter((r) => r.completed)
       default:
@@ -108,19 +114,57 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     try {
       // Add reminder (notification scheduling is handled in the store)
       await addReminder({
-        ...newReminder,
+        petId: newReminder.petId,
         title: newReminder.title.trim(),
-        description: newReminder.description.trim() || undefined,
+        description: newReminder.description?.trim(),
+        type: newReminder.type,
         scheduledDate: newReminder.scheduledDate.toISOString(),
+        recurring: newReminder.recurring,
+        notificationEnabled: newReminder.notificationEnabled,
         completed: false,
       })
 
-      setShowAddModal(false)
+      setShowModal(false)
       resetForm()
       Alert.alert("Success", "Reminder added successfully!")
     } catch (error) {
       console.error('Failed to add reminder:', error)
       Alert.alert("Error", "Failed to add reminder")
+    }
+  }
+
+  const handleEditReminder = async () => {
+    if (!selectedReminder) return
+    
+    if (!newReminder.title.trim()) {
+      Alert.alert("Error", "Please enter a title for the reminder")
+      return
+    }
+
+    if (!newReminder.petId) {
+      Alert.alert("Error", "Please select a pet")
+      return
+    }
+
+    try {
+      await updateReminderData(selectedReminder.id, {
+        petId: newReminder.petId,
+        title: newReminder.title.trim(),
+        description: newReminder.description?.trim(),
+        type: newReminder.type,
+        scheduledDate: newReminder.scheduledDate.toISOString(),
+        recurring: newReminder.recurring,
+        notificationEnabled: newReminder.notificationEnabled,
+      })
+
+      setShowModal(false)
+      setIsEditMode(false)
+      setSelectedReminder(null)
+      resetForm()
+      Alert.alert("Success", "Reminder updated successfully!")
+    } catch (error) {
+      console.error('Failed to update reminder:', error)
+      Alert.alert("Error", "Failed to update reminder")
     }
   }
 
@@ -217,6 +261,9 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       color: "#FFFFFF",
       fontWeight: "500",
     },
+    missedFilterButtonActive: {
+      backgroundColor: "#FF3B30",
+    },
     addButton: {
       backgroundColor: "#007AFF",
       borderRadius: 10,
@@ -301,6 +348,19 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       color: isDarkMode ? "#CCCCCC" : "#666666",
       textAlign: "center",
       lineHeight: 22,
+    },
+    sectionHeader: {
+      backgroundColor: isDarkMode ? "#121212" : "#F2F2F7",
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: isDarkMode ? "#2C2C2E" : "#E5E5EA",
+    },
+    sectionHeaderText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: isDarkMode ? "#FFFFFF" : "#000000",
     },
     // Modal styles
     modalOverlay: {
@@ -468,19 +528,41 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
 
       <View style={styles.reminderActions}>
         <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleComplete(item)}>
-          <Text style={styles.actionText}>{item.completed ? "↩️" : "✅"}</Text>
+          <Icon name={item.completed ? "undo" : "check-circle"} size={22} color={item.completed ? "#FF9500" : "#34C759"} />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={() => {
+            setIsEditMode(true)
+            setSelectedReminder(item)
+            setNewReminder({
+              petId: item.petId,
+              title: item.title,
+              description: item.description || "",
+              type: item.type,
+              scheduledDate: new Date(item.scheduledDate),
+              recurring: item.recurring,
+              notificationEnabled: item.notificationEnabled,
+            })
+            setShowModal(true)
+          }}
+        >
+          <Icon name="pencil" size={22} color="#007AFF" />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteReminder(item)}>
-          <Text style={styles.actionText}>🗑️</Text>
+          <Icon name="delete" size={22} color="#FF3B30" />
         </TouchableOpacity>
       </View>
     </View>
   )
 
+  const iconColor = isDarkMode ? '#CCCCCC' : '#333333';
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>⏰</Text>
+      <Icon name="calendar-clock" size={48} color={iconColor} />
       <Text style={styles.emptyTitle}>No reminders yet!</Text>
       <Text style={styles.emptyText}>
         Add reminders to keep track of feeding times, vet appointments, and other important pet care tasks.
@@ -494,20 +576,31 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.filterContainer}>
-          {(["upcoming", "all", "completed"] as const).map((filter) => (
+          {(["upcoming", "missed", "completed", "all"] as const).map((filter) => (
             <TouchableOpacity
               key={filter}
-              style={[styles.filterButton, selectedFilter === filter && styles.filterButtonActive]}
+              style={[
+                styles.filterButton, 
+                selectedFilter === filter && styles.filterButtonActive,
+              ]}
               onPress={() => setSelectedFilter(filter)}
             >
-              <Text style={[styles.filterText, selectedFilter === filter && styles.filterTextActive]}>
+              <Text style={[
+                styles.filterText, 
+                selectedFilter === filter && styles.filterTextActive,
+              ]}>
                 {filter.charAt(0).toUpperCase() + filter.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+        <TouchableOpacity style={styles.addButton} onPress={() => {
+          setIsEditMode(false)
+          setSelectedReminder(null)
+          resetForm()
+          setShowModal(true)
+        }}>
           <Text style={styles.addButtonText}>Add Reminder</Text>
         </TouchableOpacity>
       </View>
@@ -533,11 +626,11 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       </View>
 
       {/* Add Reminder Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+      <Modal visible={showModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTitle}>Add Reminder</Text>
+              <Text style={styles.modalTitle}>{isEditMode ? 'Edit Reminder' : 'Add Reminder'}</Text>
 
               <Text style={styles.label}>Pet</Text>
               <PetSuggestionInput
@@ -631,14 +724,14 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
-                  setShowAddModal(false)
+                  setShowModal(false)
                   resetForm()
                 }}
               >
                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddReminder}>
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={isEditMode ? handleEditReminder : handleAddReminder}>
                 <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save</Text>
               </TouchableOpacity>
             </View>

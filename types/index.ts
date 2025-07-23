@@ -6,7 +6,8 @@ export type RootStackParamList = {
   PetList: undefined
   CreatePet: { petId?: string; isEditing?: boolean } | undefined // Optional params for editing existing pet
   PetDetail: { petId: string }
-  Reminders: { petId?: string; action?: "add" } | undefined // Optional params for adding pet-specific reminders
+  PetHealth: { petId: string } // New screen for pet health tracking
+  Reminders: { petId?: string; action?: "add"; editReminder?: Reminder; isEditing?: boolean } | undefined // Optional params for adding/editing pet-specific reminders
   AIConsultation: undefined
   Settings: undefined
 }
@@ -24,14 +25,14 @@ export type PetType = "dog" | "cat" | "fish" | "rodent" | "bird" | "rabbit" | "e
 
 // Export PET_TYPES here
 export const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
-  { value: "dog", label: "Dog", icon: "🐕" },
-  { value: "cat", label: "Cat", icon: "🐱" },
-  { value: "fish", label: "Fish", icon: "🐠" },
-  { value: "bird", label: "Bird", icon: "🐦" },
-  { value: "rabbit", label: "Rabbit", icon: "🐰" },
-  { value: "rodent", label: "Rodent", icon: "🐹" },
-  { value: "exotic", label: "Exotic Pet", icon: "🦎" },
-  { value: "plant", label: "Plant", icon: "🌱" },
+  { value: "dog", label: "Dog", icon: "dog" },
+  { value: "cat", label: "Cat", icon: "cat" },
+  { value: "fish", label: "Fish", icon: "fish" },
+  { value: "bird", label: "Bird", icon: "bird" },
+  { value: "rabbit", label: "Rabbit", icon: "rabbit" },
+  { value: "rodent", label: "Rodent", icon: "rodent" },
+  { value: "exotic", label: "Exotic Pet", icon: "snake" },
+  { value: "plant", label: "Plant", icon: "flower" },
 ]
 
 export interface Pet {
@@ -40,9 +41,13 @@ export interface Pet {
   type: PetType
   breed?: string
   age?: number
+  birthday?: string
   weight?: number
   notes?: string
   photoUri?: string
+  photos?: string[]
+  allergies?: string[]
+  tags?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -65,7 +70,7 @@ export interface HealthLog {
   id: string
   petId: string
   date: string
-  type: "weight" | "temperature" | "medication" | "vet_visit" | "symptom" | "other"
+  type: "weight" | "temperature" | "medication" | "vet_visit" | "symptom" | "observation" | "vaccination" | "other"
   value?: string
   notes?: string
   photoUri?: string

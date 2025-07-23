@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Pet } from '../types';
 import { useThemeStore } from '../store/theme';
 
@@ -17,19 +18,21 @@ interface PetCardProps {
 export default function PetCard({ pet, onPress }: PetCardProps) {
   const { isDarkMode } = useThemeStore();
 
-  const getPetIcon = (type: string) => {
+  const getPetIconName = (type: string): string => {
     const icons = {
-      dog: '🐕',
-      cat: '🐱',
-      fish: '🐠',
-      rodent: '🐹',
-      bird: '🐦',
-      rabbit: '🐰',
-      exotic: '🦎',
-      plant: '🌱',
+      dog: 'dog',
+      cat: 'cat',
+      fish: 'fish',
+      rodent: 'rodent',
+      bird: 'bird',
+      rabbit: 'rabbit',
+      exotic: 'snake',
+      plant: 'flower',
     };
-    return icons[type as keyof typeof icons] || '🐾';
+    return icons[type as keyof typeof icons] || 'paw';
   };
+  
+  const iconColor = isDarkMode ? '#CCCCCC' : '#333333';
 
   const getAgeText = (age?: number) => {
     if (!age) return '';
@@ -103,7 +106,7 @@ export default function PetCard({ pet, onPress }: PetCardProps) {
         <Image source={{ uri: pet.photoUri }} style={styles.petImage} />
       ) : (
         <View style={styles.iconContainer}>
-          <Text style={styles.petIcon}>{getPetIcon(pet.type)}</Text>
+          <Icon name={getPetIconName(pet.type)} size={40} color={iconColor} />
         </View>
       )}
       

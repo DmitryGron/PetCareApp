@@ -14,21 +14,25 @@ import {
   Platform,
 } from "react-native"
 import * as ImagePicker from "expo-image-picker"
+import Icon from "react-native-vector-icons/MaterialCommunityIcons"
 import { usePetStore } from "../store/pets"
+import { useReminderStore } from "../store/reminders"
 import { useThemeStore } from "../store/theme"
-import { type CreatePetScreenProps, type PetType, PET_TYPES } from "../types" // Import PET_TYPES here
+import { type CreatePetScreenProps, type PetType, PET_TYPES, type Reminder } from "../types" // Import PET_TYPES here
 
 export default function CreatePetScreen({ navigation }: CreatePetScreenProps) {
   const [name, setName] = useState("")
   const [selectedType, setSelectedType] = useState<PetType>("dog")
   const [breed, setBreed] = useState("")
   const [age, setAge] = useState("")
+  const [birthday, setBirthday] = useState("")
   const [weight, setWeight] = useState("")
   const [notes, setNotes] = useState("")
   const [photoUri, setPhotoUri] = useState<string | undefined>()
   const [isLoading, setIsLoading] = useState(false)
 
   const { addPet } = usePetStore()
+  const { addReminder } = useReminderStore()
   const { isDarkMode } = useThemeStore()
 
   const handleImagePicker = async () => {
@@ -56,23 +60,67 @@ export default function CreatePetScreen({ navigation }: CreatePetScreenProps) {
   }
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert("Error", "Please enter a name for your pet")
+    if (!name.trim() || !selectedType) {
+      Alert.alert("Error", "Please enter a name and select a pet type")
+      return
+    }
+    
+    // Validate birthday format if provided
+    if (birthday && !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+      Alert.alert("Error", "Birthday should be in YYYY-MM-DD format")
       return
     }
 
     setIsLoading(true)
     try {
-      await addPet({
+      const newPet = {
         name: name.trim(),
         type: selectedType,
         breed: breed.trim() || undefined,
-        age: age ? Number.parseInt(age) : undefined,
+        age: age ? Number(age) : undefined,
+        birthday: birthday.trim() || undefined,
         weight: weight ? Number.parseFloat(weight) : undefined,
         notes: notes.trim() || undefined,
         photoUri,
-      })
-
+      }
+      
+      // Add the pet and get the ID
+      const petId = await addPet(newPet)
+      
+      // Create birthday reminder if birthday is provided
+      if (birthday) {
+        try {
+          // Extract month and day from the birthday string (YYYY-MM-DD)
+          const birthdayParts = birthday.split('-')
+          if (birthdayParts.length === 3) {
+            const month = birthdayParts[1]
+            const day = birthdayParts[2]
+            
+            // Create a reminder for the yearly birthday
+            const currentYear = new Date().getFullYear()
+            const nextBirthdayDate = `${currentYear}-${month}-${day}`
+            
+            const birthdayReminder: Omit<Reminder, 'id' | 'createdAt'> = {
+              petId,
+              title: `${name}'s Birthday`,
+              description: `${name}'s birthday celebration!`,
+              type: "other",
+              scheduledDate: nextBirthdayDate,
+              recurring: "yearly",
+              completed: false,
+              notificationEnabled: true
+            }
+            
+            await addReminder(birthdayReminder)
+            console.log(`Created yearly birthday reminder for pet: ${name}`)
+          }
+        } catch (err) {
+          console.error('Failed to create birthday reminder:', err)
+          // Continue anyway, we don't want to block pet creation if reminder fails
+        }
+      }
+      
+      setIsLoading(false)
       Alert.alert("Success", "Pet added successfully!", [{ text: "OK", onPress: () => navigation.goBack() }])
     } catch (error) {
       console.error("Failed to add pet:", error)
@@ -213,7 +261,7 @@ export default function CreatePetScreen({ navigation }: CreatePetScreenProps) {
               {photoUri ? (
                 <Image source={{ uri: photoUri }} style={styles.photo} />
               ) : (
-                <Text style={styles.photoPlaceholder}>📷</Text>
+                <Text style={styles.photoPlaceholder}><Icon name="camera" size={40} color={isDarkMode ? "#CCCCCC" : "#333333"} /></Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.photoButton} onPress={handleImagePicker}>
@@ -242,7 +290,12 @@ export default function CreatePetScreen({ navigation }: CreatePetScreenProps) {
                   style={[styles.typeOption, selectedType === type.value && styles.typeOptionSelected]}
                   onPress={() => setSelectedType(type.value)}
                 >
-                  <Text style={styles.typeIcon}>{type.icon}</Text>
+                  <Icon 
+                    name={type.icon} 
+                    size={32} 
+                    color={isDarkMode ? "#CCCCCC" : "#333333"} 
+                    style={styles.typeIcon} 
+                  />
                   <Text style={styles.typeLabel}>{type.label}</Text>
                 </TouchableOpacity>
               ))}
@@ -270,6 +323,15 @@ export default function CreatePetScreen({ navigation }: CreatePetScreenProps) {
               placeholder="Enter age"
               placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
               keyboardType="numeric"
+            />
+
+            <Text style={styles.label}>Birthday</Text>
+            <TextInput
+              style={styles.input}
+              value={birthday}
+              onChangeText={setBirthday}
+              placeholder="YYYY-MM-DD (optional)"
+              placeholderTextColor={isDarkMode ? "#666666" : "#999999"}
             />
 
             <Text style={styles.label}>Weight</Text>

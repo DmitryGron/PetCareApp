@@ -15,7 +15,7 @@ interface PetStore {
   
   // Actions
   loadPets: () => Promise<void>;
-  addPet: (pet: Omit<Pet, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addPet: (pet: Omit<Pet, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updatePetData: (id: string, updates: Partial<Pet>) => Promise<void>;
   removePet: (id: string) => Promise<void>;
   selectPet: (id: string) => Promise<void>;
@@ -40,15 +40,21 @@ export const usePetStore = create<PetStore>((set, get) => ({
 
   addPet: async (petData) => {
     try {
+      // Generate a unique ID for the pet
+      const petId = Date.now().toString();
+      
       const newPet: Pet = {
         ...petData,
-        id: Date.now().toString(),
+        id: petId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       
       await insertPet(newPet);
       await get().loadPets();
+      
+      // Return the pet ID for further operations like creating reminders
+      return petId;
     } catch (error) {
       console.error('Failed to add pet:', error);
       throw error;

@@ -129,10 +129,45 @@ export const useReminderStore = create<ReminderStore>((set, get) => ({
   toggleReminderComplete: async (id) => {
     try {
       const reminder = get().reminders.find(r => r.id === id);
-      if (reminder) {
-        await get().updateReminderData(id, { 
-          completed: !reminder.completed,
-          completedAt: !reminder.completed ? new Date().toISOString() : undefined
+      if (!reminder) return;
+      
+      // Toggle the completion status
+      const newCompletedState = !reminder.completed;
+      await get().updateReminderData(id, { 
+        completed: newCompletedState,
+        completedAt: newCompletedState ? new Date().toISOString() : undefined
+      });
+      
+      // If the reminder is now completed and it's recurring, create the next occurrence
+      if (newCompletedState && reminder.recurring) {
+        // Calculate the next date based on recurrence type
+        const nextDate = new Date(reminder.scheduledDate);
+        
+        switch (reminder.recurring) {
+          case 'daily':
+            nextDate.setDate(nextDate.getDate() + 1);
+            break;
+          case 'weekly':
+            nextDate.setDate(nextDate.getDate() + 7);
+            break;
+          case 'monthly':
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            break;
+          case 'yearly':
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
+            break;
+        }
+        
+        // Create the next occurrence
+        await get().addReminder({
+          petId: reminder.petId,
+          title: reminder.title,
+          description: reminder.description,
+          type: reminder.type,
+          scheduledDate: nextDate.toISOString(),
+          recurring: reminder.recurring,
+          notificationEnabled: reminder.notificationEnabled,
+          completed: false
         });
       }
     } catch (error) {

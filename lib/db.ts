@@ -5,6 +5,63 @@ import { Pet, Reminder, HealthLog } from '../types';
 let db: SQLite.SQLiteDatabase;
 let isInitialized = false;
 
+// Helper function to migrate the database schema for existing installations
+const migrateSchema = (tx: SQLite.SQLTransaction): void => {
+  // Add new columns to pets table if they don't exist
+  tx.executeSql(
+    "PRAGMA table_info(pets)",
+    [],
+    (_, result) => {
+      const columns = result.rows._array;
+      const columnNames = columns.map((col: any) => col.name);
+      
+      // Add photos column if it doesn't exist
+      if (!columnNames.includes('photos')) {
+        tx.executeSql(
+          "ALTER TABLE pets ADD COLUMN photos TEXT",
+          [],
+          () => console.log("Added photos column to pets table"),
+          (_, error) => { console.error("Failed to add photos column:", error); return false; }
+        );
+      }
+      
+      // Add allergies column if it doesn't exist
+      if (!columnNames.includes('allergies')) {
+        tx.executeSql(
+          "ALTER TABLE pets ADD COLUMN allergies TEXT",
+          [],
+          () => console.log("Added allergies column to pets table"),
+          (_, error) => { console.error("Failed to add allergies column:", error); return false; }
+        );
+      }
+      
+      // Add tags column if it doesn't exist
+      if (!columnNames.includes('tags')) {
+        tx.executeSql(
+          "ALTER TABLE pets ADD COLUMN tags TEXT",
+          [],
+          () => console.log("Added tags column to pets table"),
+          (_, error) => { console.error("Failed to add tags column:", error); return false; }
+        );
+      }
+      
+      // Add birthday column if it doesn't exist
+      if (!columnNames.includes('birthday')) {
+        tx.executeSql(
+          "ALTER TABLE pets ADD COLUMN birthday TEXT",
+          [],
+          () => console.log("Added birthday column to pets table"),
+          (_, error) => { console.error("Failed to add birthday column:", error); return false; }
+        );
+      }
+    },
+    (_, error) => {
+      console.error("Failed to get table info:", error);
+      return false;
+    }
+  );
+};
+
 // Helper function to create tables after WAL mode is set
 const createTablesIfNeeded = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -19,9 +76,13 @@ const createTablesIfNeeded = (): Promise<void> => {
             type TEXT NOT NULL,
             breed TEXT,
             age INTEGER,
+            birthday TEXT,
             weight REAL,
             notes TEXT,
             photoUri TEXT,
+            photos TEXT,
+            allergies TEXT,
+            tags TEXT,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
           )`,
@@ -94,58 +155,86 @@ const createTablesIfNeeded = (): Promise<void> => {
 };
 
 export const initializeDatabase = async (): Promise<void> => {
-  // Prevent double initialization
   if (isInitialized) {
-    console.log('[DB] Database already initialized');
-    return Promise.resolve();
+    console.log("Database already initialized.");
+    return;
   }
-
-  console.log('[DB] Starting database initialization...');
   
-  return new Promise<void>((resolve, reject) => {
-    try {
-      console.log('[DB] Opening database...');
-      // Open the database
-      db = SQLite.openDatabase('petcare.db');
+  console.log("[DB] Starting database initialization...");
+  
+  return new Promise((resolve, reject) => {
+    console.log("[DB] Opening database...");
+    db = SQLite.openDatabase('petcare.db');
+    
+    console.log("[DB] Setting WAL mode...");
+    // First, set WAL mode for better performance and concurrency
+    db.exec([{ sql: 'PRAGMA journal_mode = WAL;', args: [] }], false, (err, result) => {
+      if (err) {
+        console.error("[DB] Failed to set WAL mode:", err);
+        reject(err);
+        return;
+      }
       
-      console.log('[DB] Setting WAL mode...');
-      // Set WAL mode first - must be outside a transaction
-      db.exec([{ sql: 'PRAGMA journal_mode = WAL;', args: [] }], false, (error, resultSet) => {
-        if (error) {
-          console.error('[DB] Error setting WAL mode:', error);
-          return reject(error);
-        }
-        
-        console.log('[DB] WAL mode result:', resultSet);
-        console.log('[DB] Creating tables...');
-        
-        // Now create tables in a transaction
-        createTablesIfNeeded()
-          .then(() => {
-            console.log('[DB] Tables created successfully');
-            isInitialized = true;
-            resolve();
-          })
-          .catch(err => {
-            console.error('[DB] Error creating tables:', err);
-            reject(err);
-          });
-      });
-    } catch (error) {
-      console.error('[DB] Fatal initialization error:', error);
-      reject(error);
-    }
+      console.log("[DB] WAL mode result:", result);
+      
+      console.log("[DB] Creating tables...");
+      // Then create tables if needed
+      createTablesIfNeeded()
+        .then(() => {
+          console.log("[DB] Tables created successfully");
+          
+          // Run schema migrations for existing tables
+          console.log("[DB] Running schema migrations...");
+          db.transaction(
+            tx => {
+              migrateSchema(tx);
+            },
+            error => {
+              console.error("[DB] Migration failed:", error);
+              reject(error);
+            },
+            () => {
+              console.log("[DB] Migration completed successfully");
+              isInitialized = true;
+              resolve();
+            }
+          );
+        })
+        .catch(error => {
+          console.error("[DB] Failed to create tables:", error);
+          reject(error);
+        });
+    });
   });
 };
 
 // Pet operations
 export const insertPet = async (pet: Pet): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
+    // Serialize arrays to JSON strings for storage
+    const photos = pet.photos ? JSON.stringify(pet.photos) : null;
+    const allergies = pet.allergies ? JSON.stringify(pet.allergies) : null;
+    const tags = pet.tags ? JSON.stringify(pet.tags) : null;
+
     db.transaction(tx => {
       tx.executeSql(
-        `INSERT INTO pets (id, name, type, breed, age, weight, notes, photoUri, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [pet.id, pet.name, pet.type, pet.breed ?? null, pet.age ?? null, pet.weight ?? null, pet.notes ?? null, pet.photoUri ?? null, pet.createdAt, pet.updatedAt],
+        `INSERT INTO pets (id, name, type, breed, age, weight, notes, photoUri, photos, allergies, tags, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          pet.id, 
+          pet.name, 
+          pet.type, 
+          pet.breed ?? null, 
+          pet.age ?? null, 
+          pet.weight ?? null, 
+          pet.notes ?? null, 
+          pet.photoUri ?? null, 
+          photos, 
+          allergies, 
+          tags, 
+          pet.createdAt, 
+          pet.updatedAt
+        ],
         () => resolve(),
         (_, error) => { reject(error); return false; }
       );
@@ -159,7 +248,15 @@ export const getAllPets = async (): Promise<Pet[]> => {
       tx.executeSql(
         'SELECT * FROM pets ORDER BY createdAt DESC',
         [],
-        (_, { rows }) => resolve(rows._array as Pet[]),
+        (_, { rows }) => {
+          const pets = rows._array.map((pet: any) => ({
+            ...pet,
+            photos: pet.photos ? JSON.parse(pet.photos) : undefined,
+            allergies: pet.allergies ? JSON.parse(pet.allergies) : undefined,
+            tags: pet.tags ? JSON.parse(pet.tags) : undefined,
+          }));
+          resolve(pets as Pet[]);
+        },
         (_, error) => { reject(error); return false; }
       );
     });
@@ -174,7 +271,14 @@ export const getPetById = async (id: string): Promise<Pet | null> => {
         [id],
         (_, { rows }) => {
           if (rows.length > 0) {
-            resolve(rows._array[0] as Pet);
+            const pet = rows._array[0] as any;
+            const result: Pet = {
+              ...pet,
+              photos: pet.photos ? JSON.parse(pet.photos) : undefined,
+              allergies: pet.allergies ? JSON.parse(pet.allergies) : undefined,
+              tags: pet.tags ? JSON.parse(pet.tags) : undefined,
+            };
+            resolve(result);
           } else {
             resolve(null);
           }
@@ -187,10 +291,20 @@ export const getPetById = async (id: string): Promise<Pet | null> => {
 
 export const updatePet = async (id: string, updates: Partial<Pet>): Promise<void> => {
   const fields = Object.keys(updates).filter(key => key !== 'id');
-  const values = fields.map(field => {
+  
+  // Explicitly type the values array to ensure it only contains SQLStatementArg types
+  const values: (string | number | null)[] = fields.map(field => {
     const value = updates[field as keyof Pet];
-    return value ?? null; // Convert undefined to null for SQL
+    
+    // Serialize array fields to JSON strings for storage
+    if (field === 'photos' || field === 'allergies' || field === 'tags') {
+      // Ensure arrays are serialized to JSON strings
+      return Array.isArray(value) ? JSON.stringify(value) : (value ? JSON.stringify(value) : null);
+    }
+    
+    return value === undefined ? null : (value as string | number | null); // Convert undefined to null for SQL
   });
+  
   const setClause = fields.map(field => `${field} = ?`).join(', ');
   
   return new Promise<void>((resolve, reject) => {
@@ -374,6 +488,52 @@ export const getHealthLogsByPetId = async (petId: string): Promise<HealthLog[]> 
       tx.executeSql(
         'SELECT * FROM health_logs WHERE petId = ? ORDER BY date DESC',
         [petId],
+        (_, { rows }) => resolve(rows._array as HealthLog[]),
+        (_, error) => { reject(error); return false; }
+      );
+    });
+  });
+};
+
+export const updateHealthLog = async (id: string, updates: Partial<HealthLog>): Promise<void> => {
+  const fields = Object.keys(updates).filter(key => key !== 'id');
+  const values = fields.map(field => {
+    const value = updates[field as keyof HealthLog];
+    return value ?? null; // Convert undefined to null for SQL
+  });
+  const setClause = fields.map(field => `${field} = ?`).join(', ');
+  
+  return new Promise<void>((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        `UPDATE health_logs SET ${setClause} WHERE id = ?`,
+        [...values, id],
+        () => resolve(),
+        (_, error) => { reject(error); return false; }
+      );
+    });
+  });
+};
+
+export const deleteHealthLog = async (id: string): Promise<void> => {
+  return new Promise<void>((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'DELETE FROM health_logs WHERE id = ?',
+        [id],
+        () => resolve(),
+        (_, error) => { reject(error); return false; }
+      );
+    });
+  });
+};
+
+export const getHealthLogsByType = async (petId: string, type: string): Promise<HealthLog[]> => {
+  return new Promise<HealthLog[]>((resolve, reject) => {
+    db.transaction(tx => {
+      tx.executeSql(
+        'SELECT * FROM health_logs WHERE petId = ? AND type = ? ORDER BY date DESC',
+        [petId, type],
         (_, { rows }) => resolve(rows._array as HealthLog[]),
         (_, error) => { reject(error); return false; }
       );
