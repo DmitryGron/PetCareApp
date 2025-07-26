@@ -1,5 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text } from 'react-native';
+import { getFilterButtonStyles } from './FilterButton.style';
 
 interface FilterButtonProps {
   label: string;
@@ -16,25 +17,7 @@ const FilterButton: React.FC<FilterButtonProps> = ({
   isActive,
   isDarkMode,
 }) => {
-  const styles = StyleSheet.create({
-    filterButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: isDarkMode ? "#2C2C2E" : "#F2F2F7",
-    },
-    filterButtonActive: {
-      backgroundColor: filterValue === 'missed' ? "#FF3B30" : "#007AFF",
-    },
-    filterText: {
-      fontSize: 14,
-      color: isDarkMode ? "#CCCCCC" : "#666666",
-    },
-    filterTextActive: {
-      color: "#FFFFFF",
-      fontWeight: "500",
-    },
-  });
+  const styles = getFilterButtonStyles(isDarkMode, filterValue);
 
   return (
     <TouchableOpacity
