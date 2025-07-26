@@ -36,12 +36,15 @@ const ReminderModal: React.FC<ReminderModalProps> = ({
   const { pets, loadPets } = usePetStore();
   const { isDarkMode } = useThemeStore();
 
+  // We'll store the Date object for UI interaction
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
   const [reminderData, setReminderData] = useState<Omit<Reminder, 'id' | 'createdAt' | 'completed' | 'completedAt'>>({
     petId: initialPetId || '',
     title: '',
     description: '',
     type: 'feeding',
-    scheduledDate: new Date(),
+    scheduledDate: new Date().toISOString(), // Store as ISO string to match Reminder type
     recurring: undefined,
     notificationEnabled: true,
   });
@@ -51,23 +54,30 @@ const ReminderModal: React.FC<ReminderModalProps> = ({
   useEffect(() => {
     loadPets();
     if (initialData) {
+      // For existing reminder, parse the date string into a Date object for the UI
+      const date = new Date(initialData.scheduledDate);
+      setSelectedDate(date);
+      
       setReminderData({
         petId: initialData.petId,
         title: initialData.title,
         description: initialData.description || '',
         type: initialData.type,
-        scheduledDate: new Date(initialData.scheduledDate),
+        scheduledDate: initialData.scheduledDate, // Keep as string since it's already in the right format
         recurring: initialData.recurring,
         notificationEnabled: initialData.notificationEnabled,
       });
     } else {
       // Reset form when modal is opened for adding
+      const newDate = new Date();
+      setSelectedDate(newDate);
+      
       setReminderData({
         petId: initialPetId || '',
         title: '',
         description: '',
         type: 'feeding',
-        scheduledDate: new Date(),
+        scheduledDate: newDate.toISOString(), // Convert to string
         recurring: undefined,
         notificationEnabled: true,
       });
@@ -223,6 +233,9 @@ const ReminderModal: React.FC<ReminderModalProps> = ({
     saveButtonText: {
       color: '#FFFFFF',
     },
+    cancelButtonText: {
+      color: isDarkMode ? '#FFFFFF' : '#000000',
+    },
   });
 
   return (
@@ -280,21 +293,23 @@ const ReminderModal: React.FC<ReminderModalProps> = ({
             <Text style={styles.label}>Date & Time</Text>
             {showDatePicker && (
               <DateTimePicker
-                value={reminderData.scheduledDate}
+                value={selectedDate}
                 mode="datetime"
                 display="default"
-                onChange={(event, selectedDate) => {
+                onChange={(event, newDate) => {
                   setShowDatePicker(false);
-                  if (selectedDate) {
-                    setReminderData({ ...reminderData, scheduledDate: selectedDate });
+                  if (newDate) {
+                    setSelectedDate(newDate);
+                    // Also update the string version in reminderData
+                    setReminderData({ ...reminderData, scheduledDate: newDate.toISOString() });
                   }
                 }}
               />
             )}
             <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.dateButtonText}>
-                {reminderData.scheduledDate.toLocaleDateString()} at{" "}
-                {reminderData.scheduledDate.toLocaleTimeString([], {
+                {selectedDate.toLocaleDateString()} at{" "}
+                {selectedDate.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}

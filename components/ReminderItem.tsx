@@ -11,8 +11,8 @@ interface ReminderItemProps {
   onEdit: (reminder: Reminder) => void;
   onDelete: (reminder: Reminder) => void;
   getPetName: (petId: string) => string;
-  getReminderIcon: (type: string) => string; // Now accepting as a prop
-  // formatDate: (dateString: string) => string; // Using imported function
+  getReminderIcon: (type: string) => string;
+  formatDate: (dateString: string) => string;
   isDarkMode: boolean;
 }
 
@@ -23,7 +23,7 @@ const ReminderItem: React.FC<ReminderItemProps> = ({
   onDelete,
   getPetName,
   getReminderIcon,
-  // formatDate,
+  formatDate,
   isDarkMode,
 }) => {
 

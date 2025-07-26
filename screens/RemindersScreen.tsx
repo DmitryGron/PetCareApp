@@ -92,8 +92,10 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
         onPress: async () => {
           try {
             await removeReminder(reminder.id)
+          } catch (error) {
+            Alert.alert("Error", "Failed to delete reminder")
           }
-        },
+        }
       },
     ])
   }

@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
 export default function PetDetailScreen({ navigation, route }: PetDetailScreenProps) {
   const { petId } = route.params
   const { selectedPet, selectPet, removePet } = usePetStore()
-  const { reminders, loadRemindersByPet, toggleReminderComplete, removeReminder, updateReminderData } = useReminderStore()
+  const { reminders, loadRemindersByPet, toggleReminderComplete, removeReminder, addReminder, updateReminderData } = useReminderStore()
   const { isDarkMode } = useThemeStore()
   const [activeTab, setActiveTab] = useState<"info" | "reminders" | "health">("info")
   const [showReminderModal, setShowReminderModal] = useState(false)
@@ -356,24 +356,24 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Type</Text>
-          <Text style={styles.infoValue}>{selectedPet.type}</Text>
+          <Text style={styles.infoValue}>{selectedPet?.type}</Text>
         </View>
 
-        {selectedPet.breed && (
+        {selectedPet?.breed && (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Breed</Text>
             <Text style={styles.infoValue}>{selectedPet.breed}</Text>
           </View>
         )}
 
-        {selectedPet.age && (
+        {selectedPet?.age && (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Age</Text>
             <Text style={styles.infoValue}>{selectedPet.age} years old</Text>
           </View>
         )}
 
-        {selectedPet.weight && (
+        {selectedPet?.weight && (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Weight</Text>
             <Text style={styles.infoValue}>{selectedPet.weight} lbs</Text>
@@ -382,11 +382,11 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Added</Text>
-          <Text style={styles.infoValue}>{new Date(selectedPet.createdAt).toLocaleDateString()}</Text>
+          <Text style={styles.infoValue}>{new Date(selectedPet?.createdAt || '').toLocaleDateString()}</Text>
         </View>
       </View>
 
-      {selectedPet.notes && (
+      {selectedPet?.notes && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notes</Text>
           <Text style={styles.notes}>{selectedPet.notes}</Text>
@@ -536,16 +536,16 @@ export default function PetDetailScreen({ navigation, route }: PetDetailScreenPr
     <View style={[styles.container, { backgroundColor: isDarkMode ? "#000000" : "#F2F2F7" }]}>
       {/* Pet Header */}
       <View style={[styles.header, { backgroundColor: isDarkMode ? "#1C1C1E" : "#FFFFFF" }]}>
-        {selectedPet.photoUri ? (
+        {selectedPet?.photoUri ? (
           <Image source={{ uri: selectedPet.photoUri }} style={styles.petImage} />
         ) : (
           <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? "#2C2C2E" : "#EFEFEF" }]}>
             <Icon name="paw" style={[styles.petIcon, { color: "#007AFF" }]} />
           </View>
         )}
-        <Text style={[styles.petName, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>{selectedPet.name}</Text>
-        <Text style={styles.petType}>{selectedPet.type}</Text>
-        {selectedPet.breed && <Text style={[styles.petBreed, { color: isDarkMode ? "#CCCCCC" : "#666666" }]}>{selectedPet.breed}</Text>}
+        <Text style={[styles.petName, { color: isDarkMode ? "#FFFFFF" : "#000000" }]}>{selectedPet?.name}</Text>
+        <Text style={styles.petType}>{selectedPet?.type}</Text>
+        {selectedPet?.breed && <Text style={[styles.petBreed, { color: isDarkMode ? "#CCCCCC" : "#666666" }]}>{selectedPet.breed}</Text>}
       </View>
 
       {/* Tabs */}
