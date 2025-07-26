@@ -5,11 +5,11 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
   ViewStyle
 } from 'react-native';
 import { usePetStore } from '../store/pets';
 import { Pet } from '../types';
+import { getPetSuggestionInputStyles } from './PetSuggestionInput.style';
 
 interface PetSuggestionInputProps {
   value: string;
@@ -32,6 +32,8 @@ const PetSuggestionInput: React.FC<PetSuggestionInputProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedPetName, setSelectedPetName] = useState('');
   
+  const styles = getPetSuggestionInputStyles(darkMode);
+
   // Initialize with selected pet name if we have a value (pet ID)
   useEffect(() => {
     if (value) {
@@ -141,116 +143,5 @@ const PetSuggestionInput: React.FC<PetSuggestionInputProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    zIndex: 1,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 0,
-  },
-  clearButton: {
-    position: 'absolute',
-    right: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#CCCCCC',
-  },
-  clearButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  inputLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E5EA',
-    color: '#000000',
-  },
-  inputDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#38383A',
-    color: '#FFFFFF',
-  },
-  inputWithValue: {
-    fontWeight: '500',
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: 46, // height of input + border
-    left: 0,
-    right: 0,
-    maxHeight: 200,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    overflow: 'hidden',
-    zIndex: 2,
-  },
-  suggestionsContainerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E5EA',
-  },
-  suggestionsContainerDark: {
-    backgroundColor: '#2C2C2E',
-    borderColor: '#38383A',
-  },
-  suggestionsList: {
-    width: '100%',
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  suggestionItemLight: {
-    borderBottomColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
-  },
-  suggestionItemDark: {
-    borderBottomColor: '#38383A',
-    backgroundColor: '#2C2C2E',
-  },
-  suggestionTextLight: {
-    color: '#000000',
-    fontSize: 16,
-  },
-  suggestionTextDark: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  petType: {
-    fontSize: 14,
-    color: '#888888',
-  },
-  noResultsContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  noResultsTextLight: {
-    color: '#666666',
-  },
-  noResultsTextDark: {
-    color: '#999999',
-  },
-});
 
 export default PetSuggestionInput;

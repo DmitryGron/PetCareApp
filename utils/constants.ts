@@ -15,3 +15,8 @@ export const RECURRENCE_OPTIONS = [
   { value: "monthly" as "monthly", label: "Monthly" },
   { value: "yearly" as "yearly", label: "Yearly" },
 ];
+
+export const getReminderIcon = (type: string) => {
+  const reminderType = REMINDER_TYPES.find((t) => t.value === type);
+  return reminderType?.icon || "📝";
+};

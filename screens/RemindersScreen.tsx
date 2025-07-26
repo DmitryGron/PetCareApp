@@ -19,8 +19,8 @@ import ReminderItem from "../components/ReminderItem"
 import FilterButton from "../components/FilterButton"
 import type { RemindersScreenProps, Reminder } from "../types"
 import { requestNotificationPermissions } from "../lib/notifications"
-import Icon from "react-native-vector-icons/MaterialCommunityIcons"
-import { REMINDER_TYPES } from "../utils/constants"
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
+import { REMINDER_TYPES, getReminderIcon } from "../utils/constants" // Import getReminderIcon from constants
 import { formatDate } from "../utils/formatters"
 
 export default function RemindersScreen({ navigation, route }: RemindersScreenProps) {
@@ -86,17 +86,14 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
   const handleDeleteReminder = (reminder: Reminder) => {
     Alert.alert("Delete Reminder", "Are you sure you want to delete this reminder?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
+      { "text": "Delete", "style": "destructive", "onPress": async () => {
           try {
             await removeReminder(reminder.id)
           } catch (error) {
             Alert.alert("Error", "Failed to delete reminder")
           }
         }
-      },
+      }
     ])
   }
 
@@ -121,10 +118,11 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
     return pet?.name || "Unknown Pet"
   }
 
-  const getReminderIcon = (type: string) => {
-    const reminderType = REMINDER_TYPES.find((t) => t.value === type);
-    return reminderType?.icon || "📝";
-  };
+  // Removed local getReminderIcon
+  // const getReminderIcon = (type: string) => {
+  //   const reminderType = REMINDER_TYPES.find((t) => t.value === type);
+  //   return reminderType?.icon || "📝";
+  // };
 
   const styles = StyleSheet.create({
     container: {
@@ -226,8 +224,6 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
       onDelete={handleDeleteReminder}
       getPetName={getPetName}
       formatDate={formatDate}
-      isDarkMode={isDarkMode}
-      getReminderIcon={getReminderIcon}
     />
   )
 
@@ -302,8 +298,8 @@ export default function RemindersScreen({ navigation, route }: RemindersScreenPr
   )
 }
 
-// Helper function to get icon
-const getReminderIcon = (type: string) => {
-  const reminderType = REMINDER_TYPES.find((t) => t.value === type);
-  return reminderType?.icon || "📝";
-};
+// Removed duplicate helper function
+// const getReminderIcon = (type: string) => {
+//   const reminderType = REMINDER_TYPES.find((t) => t.value === type);
+//   return reminderType?.icon || "📝";
+// };

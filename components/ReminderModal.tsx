@@ -14,7 +14,7 @@ Alert,
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { usePetStore } from '../store/pets';
 import { useThemeStore } from '../store/theme';
-import PetSuggestionInput from './PetSuggestionInput';
+import PetSuggestionInput from './PetSuggestionInput'; // Added PetSuggestionInput import
 import type { Pet, Reminder } from '../types';
 import { REMINDER_TYPES, RECURRENCE_OPTIONS } from '../utils/constants';
 
